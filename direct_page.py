@@ -320,7 +320,6 @@ def render_direct_prediction_app(assets=None, show_back_button=False):
         if show_back_button:
             back_clicked = st.button(
                 "Return to Lifecycle Time-Varying Probability Assessment",
-                type="secondary",
                 key="btn_return_lifecycle",
                 use_container_width=True,
             )
