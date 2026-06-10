@@ -14,6 +14,35 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
+# ================== Green style for page-switching buttons ==================
+st.markdown("""
+<style>
+/* Make Streamlit secondary buttons green */
+button[data-testid="baseButton-secondary"] {
+    background-color: #008000 !important;
+    color: white !important;
+    border: 1px solid #006400 !important;
+    font-weight: bold !important;
+    font-family: "Times New Roman", serif !important;
+}
+
+/* Hover effect */
+button[data-testid="baseButton-secondary"]:hover {
+    background-color: #006400 !important;
+    color: white !important;
+    border: 1px solid #004d00 !important;
+}
+
+/* Active/click effect */
+button[data-testid="baseButton-secondary"]:active {
+    background-color: #004d00 !important;
+    color: white !important;
+    border: 1px solid #003300 !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
+
 @st.cache_resource
 def load_numpy_assets():
     assets_path = "model_assets_numpy.pkl"
