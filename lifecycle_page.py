@@ -359,7 +359,7 @@ def render_lifecycle_app(assets=None):
         """, unsafe_allow_html=True)
     
         predict_clicked = st.button("Simulate Lifecycle Probabilities (LHS)", type="primary", use_container_width=True)
-        direct_clicked = st.button("已有冲刷和腐蚀数据，直接进行预测", type="secondary", use_container_width=True)
+        direct_clicked = st.button("Direct Prediction Using Existing Scour and Corrosion Data", type="secondary", use_container_width=True)
         if direct_clicked:
             st.session_state.page_mode = "direct"
             st.rerun()
