@@ -77,7 +77,7 @@ def inject_css():
         .param-desc {
             text-align: center;
             color: #444444;
-            font-size: 16px;
+            font-size: 14px;
             padding-top: 8px;
             padding-left: 10px;
             font-family: Arial, sans-serif;
