@@ -14,27 +14,27 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# ================== Green style for page-switching buttons ==================
 st.markdown("""
 <style>
-/* Make Streamlit secondary buttons green */
-button[data-testid="baseButton-secondary"] {
+div.st-key-btn_direct_prediction button,
+div.st-key-btn_return_lifecycle button {
     background-color: #008000 !important;
     color: white !important;
     border: 1px solid #006400 !important;
     font-weight: bold !important;
     font-family: "Times New Roman", serif !important;
+    border-radius: 6px !important;
 }
 
-/* Hover effect */
-button[data-testid="baseButton-secondary"]:hover {
+div.st-key-btn_direct_prediction button:hover,
+div.st-key-btn_return_lifecycle button:hover {
     background-color: #006400 !important;
     color: white !important;
     border: 1px solid #004d00 !important;
 }
 
-/* Active/click effect */
-button[data-testid="baseButton-secondary"]:active {
+div.st-key-btn_direct_prediction button:active,
+div.st-key-btn_return_lifecycle button:active {
     background-color: #004d00 !important;
     color: white !important;
     border: 1px solid #003300 !important;
@@ -53,10 +53,8 @@ def load_numpy_assets():
 
 assets = load_numpy_assets()
 
-
 if "page_mode" not in st.session_state:
     st.session_state.page_mode = "lifecycle"
-
 
 if st.session_state.page_mode == "lifecycle":
     render_lifecycle_app(assets=assets)
