@@ -58,7 +58,7 @@ def inject_css():
             text-align: center !important;
         }
         div[data-baseweb="select"] div {
-            font-size: 15px !important;
+            font-size: 16px !important;
         }
         .param-header {
             text-align: center;
@@ -77,7 +77,7 @@ def inject_css():
         .param-desc {
             text-align: center;
             color: #444444;
-            font-size: 14px;
+            font-size: 16px;
             padding-top: 8px;
             padding-left: 10px;
             font-family: Arial, sans-serif;
