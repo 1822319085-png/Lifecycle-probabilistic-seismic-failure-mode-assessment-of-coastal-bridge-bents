@@ -20,6 +20,7 @@ from scipy.stats import qmc
 import warnings
 warnings.filterwarnings("ignore")
 
+def render_lifecycle_app(assets=None):
 # ================== 1. 网页全局配置与超级 CSS 美化 ==================
 st.set_page_config(
     page_title="Lifecycle probabilistic seismic failure mode assessment of coastal bridge bents",
