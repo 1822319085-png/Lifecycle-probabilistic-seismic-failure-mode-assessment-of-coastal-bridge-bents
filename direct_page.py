@@ -262,8 +262,8 @@ def render_direct_prediction_app(assets=None, show_back_button=False):
         for p_id, html_name, desc, rng, p_min, p_max, p_mean, p_dist, p_cov, p_step, p_format in params_config:
             c1, c2, c3, c4, c5, c6 = st.columns([1.0, 2.5, 1.6, 1.2, 1.2, 1.5])
 
-            c1.markdown(f"<div class='param-symbol'>{html_name}</div>", unsafe_allow_html=True)
-            c2.markdown(f"<div class='param-desc'>{desc}</div>", unsafe_allow_html=True)
+            c1.markdown(f"<div class='param-symbol'>{html_name}</div>",font-size: 16px; unsafe_allow_html=True)
+            c2.markdown(f"<div class='param-desc'>{desc}</div>",font-size: 16px; unsafe_allow_html=True)
 
             with c3:
                 dist_val = st.selectbox(
