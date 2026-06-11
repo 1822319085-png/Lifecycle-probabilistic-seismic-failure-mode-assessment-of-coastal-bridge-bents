@@ -56,9 +56,17 @@ def inject_css():
         }
         div[data-baseweb="input"] input {
             text-align: center !important;
+            font-family: 'Times New Roman', serif !important;
+            font-size: 18px !important;
         }
         div[data-baseweb="select"] div {
-            font-size: 16px !important;
+            font-family: 'Times New Roman', serif !important;
+            font-size: 18px !important;
+        }
+        /* 强制下拉菜单展开后的候选项列表使用新罗马字体 */
+        ul[data-baseweb="menu"] li, [role="listbox"] li { 
+            font-family: 'Times New Roman', serif !important; 
+            font-size: 18px !important; /* 👈 修改这里改变下拉菜单展开后的大小 */
         }
         .param-header {
             text-align: center;
