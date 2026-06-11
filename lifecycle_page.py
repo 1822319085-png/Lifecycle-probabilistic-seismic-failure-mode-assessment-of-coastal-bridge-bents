@@ -246,7 +246,7 @@ def render_lifecycle_app(assets=None):
             for p_id, html_name, desc, rng_str, p_min, p_max, p_mean, p_dist, p_disp, p_step, p_fmt, dist_opts in params_config:
                 c1, c2, c3, c4, c5, c6 = st.columns([1.2, 2.8, 1.4, 1.2, 1.2, 1.2])
                 c1.markdown(f"<div style='text-align: center; font-weight: bold; padding-top: 8px; font-family: \"Times New Roman\", serif;'>{html_name}</div>", unsafe_allow_html=True)
-                c2.markdown(f"<div style='text-align: center; color: #444; font-size: 14px; padding-top: 8px; font-family: \"Times New Roman\", serif;'>{desc}</div>", unsafe_allow_html=True)
+                c2.markdown(f"<div style='text-align: center; color: #444; font-size: 15px; padding-top: 8px; font-family: \"Times New Roman\", serif;'>{desc}</div>", unsafe_allow_html=True)
             
                 with c3:
                     dist_val = st.selectbox(label=f"{p_id}_dist", options=dist_opts, index=dist_opts.index(p_dist), label_visibility="collapsed")
