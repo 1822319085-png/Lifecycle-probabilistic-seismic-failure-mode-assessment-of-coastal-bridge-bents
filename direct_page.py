@@ -461,7 +461,7 @@ def render_direct_prediction_app(assets=None, show_back_button=False):
             unsafe_allow_html=True,
         )
         try:
-            st.image("structure.png", use_container_width=True)
+            st.image("GUI_structure.png", use_container_width=True)
         except Exception:
             st.markdown(
                 """
