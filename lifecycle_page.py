@@ -716,7 +716,7 @@ def render_lifecycle_app(assets=None):
         st.write("---")
         st.markdown("<div style='text-align: center; font-family: \"Times New Roman\", serif; font-weight: bold; font-size: 17px; margin-bottom: 5px;'>Structure Schematic</div>", unsafe_allow_html=True)
         try:
-            st.image("structure.png", use_container_width=True)
+            st.image("GUI_structure.png", use_container_width=True)
         except:
             st.markdown("""
             <div style='border: 1px dashed #ccc; padding: 20px; text-align: center; color: #999; font-family: \"Times New Roman\", serif;'>
