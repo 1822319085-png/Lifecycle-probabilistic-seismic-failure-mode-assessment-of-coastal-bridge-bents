@@ -71,15 +71,15 @@ def inject_css():
         .param-header {
             text-align: center;
             color: #800020;
-            font-size: 18px;
+            font-size: 16px;
             font-weight: bold;
-            font-family: Arial, sans-serif;
+            font-family: 'Times New Roman', sans-serif;
         }
         .param-symbol {
             text-align: center;
             color: #4a235a;
             font-weight: bold;
-            font-family: Arial, sans-serif;
+            font-family: 'Times New Roman', sans-serif;
             padding-top: 8px;
         }
         .param-desc {
@@ -88,14 +88,14 @@ def inject_css():
             font-size: 16px;
             padding-top: 8px;
             padding-left: 10px;
-            font-family: Arial, sans-serif;
+            font-family: 'Times New Roman', sans-serif;
         }
         .param-range {
             text-align: center;
             color: #666666;
             font-size: 16px;
             padding-top: 8px;
-            font-family: Arial, sans-serif;
+            font-family: 'Times New Roman', sans-serif;
         }
         </style>
         """,
