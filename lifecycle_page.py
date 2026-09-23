@@ -1608,9 +1608,23 @@ def make_transition_histogram(
 # ============================================================
 # 10. Main lifecycle page
 # ============================================================
-def render_lifecycle_app():
+def render_lifecycle_app(assets=None):
+    """
+    Render lifecycle assessment page.
+
+    Parameters
+    ----------
+    assets : dict or None
+        Optional model assets passed from app.py. If None, this page loads
+        model_assets_numpy.pkl internally. This keeps compatibility with both:
+            render_lifecycle_app()
+        and:
+            render_lifecycle_app(assets=assets)
+    """
     inject_css()
-    assets = load_numpy_assets()
+
+    if assets is None:
+        assets = load_numpy_assets()
 
     st.markdown(
         """
