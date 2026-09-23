@@ -232,28 +232,28 @@ def render_direct_prediction_app(assets=None, show_back_button=False):
         params_config = [
             ("N", "N", "Number of pile rows along the loading direction", "2~4", 2.0, 4.0, 3.0, "Deterministic", 0.00, 1.0, "%.0f"),
             ("Dp", "D<sub>p</sub> (m)", "Pile diameter", "0.6~1.8", 0.6, 1.8, 1.2, "Normal", 0.10, 0.1, "%.2f"),
-            ("rho_pl", "ρ<sub>pile,l</sub>", "Pile longitudinal reinforcement ratio", "0.005~0.015", 0.005, 0.015, 0.010, "Normal", 0.27, 0.001, "%.3f"),
+            ("rho_pl", "ρ<sub>p,l</sub>", "Pile longitudinal reinforcement ratio", "0.005~0.015", 0.005, 0.015, 0.010, "Normal", 0.27, 0.001, "%.3f"),
             ("alpha", "α", "Column axial load ratio", "0.05~0.25", 0.05, 0.25, 0.15, "Normal", 0.12, 0.01, "%.2f"),
             ("S_Dp", "S (D<sub>p</sub>)", "Pile spacing-to-diameter ratio", "2.5~3.5", 2.5, 3.5, 3.0, "Normal", 0.15, 0.1, "%.2f"),
-            ("Dr", "D<sub>r</sub>", "Sand relative density", "0.35~0.75", 0.35, 0.75, 0.55, "Uniform", 0.21, 0.05, "%.2f"),
+            ("Dr", "D<sub>r</sub>", "Relative density of sand", "0.35~0.75", 0.35, 0.75, 0.55, "Uniform", 0.21, 0.05, "%.2f"),
             ("SD", "SD (m)", "Scour depth", "0~8", 0.0, 8.0, 4.0, "Normal", 0.27, 0.5, "%.2f"),
             ("Hp_Dc", "H<sub>p</sub>/D<sub>c</sub>", "Column aspect ratio", "1~5", 1.0, 5.0, 3.0, "Normal", 0.26, 0.1, "%.2f"),
-            ("Dc_Dp", "D<sub>c</sub> (D<sub>p</sub>)", "Pier-to-pile diameter ratio", "1.5~3.0", 1.5, 3.0, 2.0, "Normal", 0.10, 0.1, "%.2f"),
-            ("rho_cl", "ρ<sub>column,l</sub>", "Pier longitudinal reinforcement ratio", "0.005~0.015", 0.005, 0.015, 0.010, "Normal", 0.27, 0.001, "%.3f"),
-            ("rho_ps", "ρ<sub>pile,s</sub>", "Pile transverse reinforcement ratio", "0.003~0.013", 0.003, 0.013, 0.008, "Normal", 0.42, 0.001, "%.3f"),
+            ("Dc_Dp", "D<sub>c</sub> (D<sub>p</sub>)", "Column-to-pile diameter ratio", "1.5~3.0", 1.5, 3.0, 2.0, "Normal", 0.10, 0.1, "%.2f"),
+            ("rho_cl", "ρ<sub>c,l</sub>", "Pier longitudinal reinforcement ratio", "0.005~0.015", 0.005, 0.015, 0.010, "Normal", 0.27, 0.001, "%.3f"),
+            ("rho_ps", "ρ<sub>p,s</sub>", "Pile transverse reinforcement ratio", "0.003~0.013", 0.003, 0.013, 0.008, "Normal", 0.42, 0.001, "%.3f"),
             ("fyl", "f<sub>yl</sub> (MPa)", "Longitudinal rebar yield strength", "300~500", 300.0, 500.0, 400.0, "Lognormal", 0.106, 10.0, "%.0f"),
             ("fc", "f<sub>c</sub> (MPa)", "Concrete compressive strength", "20~60", 20.0, 60.0, 40.0, "Lognormal", 0.20, 1.0, "%.1f"),
-            ("rho_cs", "ρ<sub>column,s</sub>", "Pier transverse reinforcement ratio", "0.003~0.013", 0.003, 0.013, 0.008, "Normal", 0.42, 0.001, "%.3f"),
+            ("rho_cs", "ρ<sub>c,s</sub>", "Pier transverse reinforcement ratio", "0.003~0.013", 0.003, 0.013, 0.008, "Normal", 0.42, 0.001, "%.3f"),
 
             # ===== 腐蚀参数：按机器学习训练范围 0~1.0 设置 =====
             # Xt 不再表示 Xt/Xl，而是箍筋/横向钢筋腐蚀率本身
             ("Xt", "X<sub>t</sub>", "Corrosion level of transverse reinforcement", "0~1.00", 0.0, 1.0, 0.30, "Normal", 0.29, 0.01, "%.2f"),
             ("Xl", "X<sub>l</sub>", "Corrosion level of longitudinal reinforcement", "0~1.00", 0.0, 1.0, 0.15, "Normal", 0.20, 0.01, "%.2f"),
 
-            ("t", "t (m)", "Pier cover concrete thickness", "0.04~0.08", 0.04, 0.08, 0.06, "Normal", 0.20, 0.01, "%.2f"),
-            ("d_l", "d<sub>l</sub> (m)", "Pier longitudinal reinforcement diameter", "0.018~0.032", 0.018, 0.032, 0.025, "Normal", 0.10, 0.001, "%.3f"),
+            ("t", "t<sub>c</sub> (m)", "Column cover concrete thickness", "0.04~0.08", 0.04, 0.08, 0.06, "Normal", 0.20, 0.01, "%.2f"),
+            ("d_l", "d<sub>l</sub> (m)", "Column longitudinal reinforcement diameter", "0.018~0.032", 0.018, 0.032, 0.025, "Normal", 0.10, 0.001, "%.3f"),
             ("fyt", "f<sub>yt</sub> (MPa)", "Transverse rebar yield strength", "250~450", 250.0, 450.0, 350.0, "Lognormal", 0.106, 10.0, "%.0f"),
-            ("d_t", "d<sub>t</sub> (m)", "Transverse reinforcement diameter", "0.010~0.020", 0.010, 0.020, 0.016, "Normal", 0.10, 0.001, "%.3f"),
+            ("d_t", "d<sub>s</sub> (m)", "Column transverse reinforcement diameter", "0.010~0.020", 0.010, 0.020, 0.016, "Normal", 0.10, 0.001, "%.3f"),
         ]
 
         dist_options = ["Normal", "Lognormal", "Uniform", "Deterministic"]
