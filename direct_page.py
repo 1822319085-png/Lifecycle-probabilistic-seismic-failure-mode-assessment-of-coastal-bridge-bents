@@ -66,12 +66,12 @@ def inject_css():
         /* 强制下拉菜单展开后的候选项列表使用新罗马字体 */
         ul[data-baseweb="menu"] li, [role="listbox"] li { 
             font-family: 'Times New Roman', serif !important; 
-            font-size: 18px !important; /* 👈 修改这里改变下拉菜单展开后的大小 */
+            font-size: 16px !important; /* 👈 修改这里改变下拉菜单展开后的大小 */
         }
         .param-header {
             text-align: center;
             color: #800020;
-            font-size: 20px;
+            font-size: 18px;
             font-weight: bold;
             font-family: Arial, sans-serif;
         }
