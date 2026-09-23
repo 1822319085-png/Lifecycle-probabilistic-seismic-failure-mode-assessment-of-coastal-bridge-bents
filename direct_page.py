@@ -239,7 +239,7 @@ def render_direct_prediction_app(assets=None, show_back_button=False):
             ("SD", "SD (m)", "Scour depth", "0~8", 0.0, 8.0, 4.0, "Normal", 0.27, 0.5, "%.2f"),
             ("Hp_Dc", "H<sub>p</sub>/D<sub>c</sub>", "Column aspect ratio", "1~5", 1.0, 5.0, 3.0, "Normal", 0.26, 0.1, "%.2f"),
             ("Dc_Dp", "D<sub>c</sub> (D<sub>p</sub>)", "Column-to-pile diameter ratio", "1.5~3.0", 1.5, 3.0, 2.0, "Normal", 0.10, 0.1, "%.2f"),
-            ("rho_cl", "ρ<sub>c,l</sub>", "Pier longitudinal reinforcement ratio", "0.005~0.015", 0.005, 0.015, 0.010, "Normal", 0.27, 0.001, "%.3f"),
+            ("rho_cl", "ρ<sub>c,l</sub>", "Column longitudinal reinforcement ratio", "0.005~0.015", 0.005, 0.015, 0.010, "Normal", 0.27, 0.001, "%.3f"),
             ("rho_ps", "ρ<sub>p,s</sub>", "Pile transverse reinforcement ratio", "0.003~0.013", 0.003, 0.013, 0.008, "Normal", 0.42, 0.001, "%.3f"),
             ("fyl", "f<sub>yl</sub> (MPa)", "Longitudinal rebar yield strength", "300~500", 300.0, 500.0, 400.0, "Lognormal", 0.106, 10.0, "%.0f"),
             ("fc", "f<sub>c</sub> (MPa)", "Concrete compressive strength", "20~60", 20.0, 60.0, 40.0, "Lognormal", 0.20, 1.0, "%.1f"),
