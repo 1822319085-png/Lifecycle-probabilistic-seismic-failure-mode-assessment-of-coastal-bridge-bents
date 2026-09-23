@@ -22,7 +22,7 @@ consistent with the current lifetime-transition code:
    and are forced non-decreasing by maximum.accumulate.
 9. Scour uses a fixed LHS quantile U_SD for each sample:
        SD_i(t) = F_t^{-1}(U_SD,i)
-   with COV=0.27, 0.5 m discretization and monotonic enforcement.
+   using the continuous time-varying scour equation and monotonic enforcement.
 10. Individual-sample failure-mode transition time is extracted using:
        - minimum persistence = 3 years
        - probability margin = 0.05
@@ -32,7 +32,7 @@ consistent with the current lifetime-transition code:
        - To FFF = CFF->FFF + CSF->FFF
        - To CSF = CFF->CSF + FFF->CSF
     No fitted distribution curves are used.
-12. structure.png is displayed at the bottom center of the whole page.
+12. GUI_structure.png is displayed directly below the transition-time plots.
 """
 
 import io
@@ -46,6 +46,7 @@ import pandas as pd
 import streamlit as st
 import matplotlib.pyplot as plt
 import matplotlib.font_manager as font_manager
+from matplotlib.ticker import MaxNLocator
 from scipy import stats, special
 from scipy.stats import qmc
 
@@ -66,7 +67,7 @@ MIN_TRANSITION_YEAR = 1
 
 FORCE_SCOUR_MONOTONIC = True
 FORCE_CORROSION_MONOTONIC = True
-SD_DISCRETIZE_STEP = 0.5
+SD_DISCRETIZE_STEP = None  # continuous scour depth; no 0.5 m discretization
 SD_COV_DEFAULT = 0.27
 TRANSITION_HIST_BIN_WIDTH = 5
 
@@ -106,9 +107,10 @@ CURRENT_CASE2_DEFAULTS = {
     "ke": ("Normal", 1.000, 0.300, 1e-6, None),
     "n_val": ("Beta", 0.250, 0.050, None, None),
     "X1": ("Lognormal", 1.000, 0.050, None, None),
-    "lam": ("Deterministic", 2.000, 0.000, None, None),
+    "lam_corr": ("Deterministic", 2.000, 0.000, None, None),
     "R": ("GumbelMuAlpha", 5.560, 1.160, 1e-6, None),
-    "B_val": ("Deterministic", 2.0 * 2.260, 0.0, None, None),
+    "lambda_SD": ("Deterministic", 2.000, 0.000, None, None),
+    "B_val": ("Deterministic", 2.260, 0.0, None, None),
     "p_val": ("Deterministic", 1.093, 0.0, None, None),
     "q_val": ("Deterministic", 0.021, 0.0, None, None),
     "r_val": ("Deterministic", 0.269, 0.0, None, None),
@@ -315,6 +317,61 @@ def inject_css():
         unsafe_allow_html=True,
     )
 
+
+
+def find_all_crossovers(
+    years,
+    prob_a,
+    prob_b,
+    label_a,
+    label_b,
+):
+    """Find all intersections of two annual probability curves."""
+    crossovers = []
+    diff = np.asarray(prob_a) - np.asarray(prob_b)
+
+    for i in range(len(years) - 1):
+        if diff[i] == 0:
+            if i > 0 and diff[i - 1] != 0:
+                slope_a = prob_a[i + 1] - prob_a[i]
+                slope_b = prob_b[i + 1] - prob_b[i]
+
+                if diff[i - 1] > 0 and slope_a < slope_b:
+                    crossovers.append(
+                        (
+                            round(float(years[i]), 2),
+                            f"{label_a} to {label_b}",
+                        )
+                    )
+                elif diff[i - 1] < 0 and slope_a > slope_b:
+                    crossovers.append(
+                        (
+                            round(float(years[i]), 2),
+                            f"{label_b} to {label_a}",
+                        )
+                    )
+
+        elif diff[i] * diff[i + 1] < 0:
+            t_cross = (
+                years[i]
+                - diff[i]
+                * (years[i + 1] - years[i])
+                / (diff[i + 1] - diff[i])
+            )
+
+            slope_a = prob_a[i + 1] - prob_a[i]
+            slope_b = prob_b[i + 1] - prob_b[i]
+
+            if slope_a < slope_b:
+                desc = f"{label_a} to {label_b}"
+            else:
+                desc = f"{label_b} to {label_a}"
+
+            crossovers.append(
+                (round(float(t_cross), 2), desc)
+            )
+
+    return crossovers
 
 def apply_academic_style(ax):
     ax.xaxis.label.set_fontproperties(GLOBAL_FONT_PROP)
@@ -701,7 +758,7 @@ def generate_corrosion_paths(samples_dict, years_arr):
         tc_mm,
         years_arr,
         samples_dict["R"],
-        samples_dict["lam"],
+        samples_dict["lam_corr"],
     )
 
     corr_stir = pitting_corrosion_matrix(
@@ -710,7 +767,7 @@ def generate_corrosion_paths(samples_dict, years_arr):
         cover_stir_mm,
         years_arr,
         samples_dict["R"],
-        samples_dict["lam"],
+        samples_dict["lam_corr"],
     )
 
     return (
@@ -726,89 +783,59 @@ def generate_scour_paths(
     U,
     all_inputs,
     years_arr,
-    sd_cov
+    sd_cov=None,
 ):
-    input_ids = [p["id"] for p in all_inputs]
-    sd_idx = input_ids.index("SD_val")
-    U_SD = np.clip(
-        U[:, sd_idx],
-        1e-10,
-        1.0 - 1e-10
-    )
+    """
+    Continuous time-varying scour depth.
 
+    The GUI now uses the scour evolution equation directly in the ML inputs:
+        SD(t) = lambda_SD * B *
+                [p*(1-exp(-q*t)) + r*(1-exp(-s*t))]
+
+    No 0.5 m discretization and no additional yearly random SD realization
+    are applied. If the user changes B/p/q/r/s/lambda_SD from deterministic
+    to random distributions in a future version, each sample retains its
+    initially sampled coefficients throughout the entire lifecycle.
+    """
     p_arr = np.asarray(samples_dict["p_val"], dtype=float)
     q_arr = np.asarray(samples_dict["q_val"], dtype=float)
     r_arr = np.asarray(samples_dict["r_val"], dtype=float)
     s_arr = np.asarray(samples_dict["s_val"], dtype=float)
     B_arr = np.asarray(samples_dict["B_val"], dtype=float)
+    lambda_sd_arr = np.asarray(
+        samples_dict["lambda_SD"],
+        dtype=float
+    )
 
-    raw = np.zeros(
-        (len(U_SD), len(years_arr)),
+    scour_depths = np.zeros(
+        (len(B_arr), len(years_arr)),
         dtype=float
     )
 
     for y_idx, yr in enumerate(years_arr):
-        sd_mean = B_arr * (
-            p_arr * (1.0 - np.exp(-q_arr * yr))
-            + r_arr * (1.0 - np.exp(-s_arr * yr))
+        sd = (
+            lambda_sd_arr
+            * B_arr
+            * (
+                p_arr * (1.0 - np.exp(-q_arr * yr))
+                + r_arr * (1.0 - np.exp(-s_arr * yr))
+            )
         )
 
-        zero_mask = np.isclose(
-            sd_mean,
-            0.0,
-            atol=1e-14
-        )
-
-        dynamic_std = sd_mean * float(sd_cov)
-        safe_std = np.maximum(dynamic_std, 1e-10)
-
-        a = (0.0 - sd_mean) / safe_std
-        b = (8.0 - sd_mean) / safe_std
-
-        sd_samples = stats.truncnorm.ppf(
-            U_SD,
-            a,
-            b,
-            loc=sd_mean,
-            scale=safe_std,
-        )
-
-        sd_samples = np.where(
-            zero_mask,
-            0.0,
-            sd_samples
-        )
-        sd_samples = np.clip(
-            sd_samples,
+        # Keep the ML input inside the trained physical range.
+        scour_depths[:, y_idx] = np.clip(
+            sd,
             0.0,
             8.0
         )
 
-        if (
-            SD_DISCRETIZE_STEP is not None
-            and SD_DISCRETIZE_STEP > 0
-        ):
-            sd_samples = (
-                np.round(
-                    sd_samples
-                    / SD_DISCRETIZE_STEP
-                )
-                * SD_DISCRETIZE_STEP
-            )
-            sd_samples = np.clip(
-                sd_samples,
-                0.0,
-                8.0
-            )
-
-        raw[:, y_idx] = sd_samples
-
     if FORCE_SCOUR_MONOTONIC:
-        return np.maximum.accumulate(
-            raw,
+        scour_depths = np.maximum.accumulate(
+            scour_depths,
             axis=1
         )
-    return raw
+
+    return scour_depths
 
 
 # ============================================================
@@ -1310,6 +1337,7 @@ def make_initiation_plot(
     T_init_long,
     T_init_stir,
 ):
+    """Original histogram colors + retained lognormal fitted PDFs."""
     fig, ax = plt.subplots(
         figsize=(6, 3.3),
         dpi=220
@@ -1324,36 +1352,98 @@ def make_initiation_plot(
         & (T_init_stir <= 100)
     ]
 
+    # Restore the original GUI palette.
+    color_hist_s = "#CBE5F5"
+    color_line_s = "#0000FF"
+    color_hist_l = "#FADBDC"
+    color_line_l = "#FF0000"
+
     ax.hist(
         t_stir,
-        bins=70,
+        bins=80,
+        rwidth=1.0,
         density=True,
-        alpha=0.72,
-        color="#A7D8F0",
-        edgecolor="white",
-        linewidth=0.35,
-        label="Transverse reinforcement",
+        alpha=0.8,
+        color=color_hist_s,
+        edgecolor="gray",
+        linewidth=0.5,
+        label="Transverse frequency",
     )
     ax.hist(
         t_long,
-        bins=70,
+        bins=80,
+        rwidth=1.0,
         density=True,
-        alpha=0.55,
-        color="#F3B6B8",
-        edgecolor="white",
-        linewidth=0.35,
-        label="Longitudinal reinforcement",
+        alpha=0.6,
+        color=color_hist_l,
+        edgecolor="gray",
+        linewidth=0.5,
+        label="Longitudinal frequency",
     )
 
-    # Existing corrosion-initiation distribution is shown only as histogram.
-    # No fitted PDF is added in this revised interface.
+    # Keep the fitted distributions for this figure.
+    stir_fit = t_stir[t_stir > 0]
+    if len(stir_fit) > 5:
+        shape_s, _, scale_s = stats.lognorm.fit(
+            stir_fit,
+            floc=0
+        )
+        x_s = np.linspace(1e-4, 100, 1000)
+        ax.plot(
+            x_s,
+            stats.lognorm.pdf(
+                x_s,
+                shape_s,
+                loc=0,
+                scale=scale_s,
+            ),
+            color=color_line_s,
+            lw=2.3,
+            label="Transverse lognormal distribution",
+        )
+
+    long_fit = t_long[t_long > 0]
+    if len(long_fit) > 5:
+        shape_l, _, scale_l = stats.lognorm.fit(
+            long_fit,
+            floc=0
+        )
+        x_l = np.linspace(1e-4, 100, 1000)
+        ax.plot(
+            x_l,
+            stats.lognorm.pdf(
+                x_l,
+                shape_l,
+                loc=0,
+                scale=scale_l,
+            ),
+            color=color_line_l,
+            lw=2.3,
+            label="Longitudinal lognormal distribution",
+        )
+
     set_axis_labels(
         ax,
         "Initial corrosion time (years)",
         "Probability density",
     )
     ax.set_xlim(0, 30)
-    ax.legend(frameon=False, loc="upper right")
+
+    y_max = ax.get_ylim()[1]
+    rounded_ymax = (
+        np.ceil(y_max * 10.0) / 10.0
+        if y_max > 0
+        else 0.1
+    )
+    ax.set_ylim(0, rounded_ymax)
+    ax.set_yticks(
+        np.linspace(0, rounded_ymax, 5)
+    )
+
+    ax.legend(
+        frameon=False,
+        loc="upper right",
+    )
     ax.grid(False)
     apply_academic_style(ax)
     fig.tight_layout(pad=0.35)
@@ -1441,6 +1531,7 @@ def make_scour_plot(
     years,
     scour_depths,
 ):
+    """Continuous scour-depth plot with integer-truncated vertical axis."""
     fig, ax = plt.subplots(
         figsize=(6, 3.3),
         dpi=220
@@ -1454,21 +1545,27 @@ def make_scour_plot(
         scour_depths, 84, axis=0
     )
 
+    # With deterministic default scour parameters all three curves coincide.
+    # The band remains useful if users later assign uncertainty to coefficients.
     ax.plot(
         years,
         med,
         color="#1F7A8C",
-        lw=2.2,
-        label="Scour depth (median)",
+        lw=2.4,
+        label="Scour depth",
+        zorder=3,
     )
-    ax.fill_between(
-        years,
-        p16,
-        p84,
-        color="#B8E0E6",
-        alpha=0.65,
-        label="16%-84% quantiles",
-    )
+
+    if np.any(np.abs(p84 - p16) > 1e-12):
+        ax.fill_between(
+            years,
+            p16,
+            p84,
+            color="#B8E0E6",
+            alpha=0.55,
+            label="16%-84% quantiles",
+            zorder=2,
+        )
 
     set_axis_labels(
         ax,
@@ -1476,7 +1573,14 @@ def make_scour_plot(
         "Scour depth (m)",
     )
     ax.set_xlim(0, 100)
-    ax.set_ylim(0, 8.2)
+
+    max_scour = float(np.max(p84))
+    y_top = max(1, int(np.ceil(max_scour)))
+    ax.set_ylim(0, y_top)
+    ax.set_yticks(
+        np.arange(0, y_top + 1, 1)
+    )
+
     ax.legend(frameon=False, loc="upper left")
     ax.grid(False)
     apply_academic_style(ax)
@@ -1494,37 +1598,40 @@ def make_failure_probability_plot(
         dpi=220
     )
 
+    # User-specified RGB colors /255:
+    # FFF [70,192,115], CFF [60,117,189], CSF [224,47,98]
     colors = {
-        "FFF": "#2A9D8F",
-        "PFF": "#3B82F6",
-        "CFF": "#3B82F6",
-        "PSF": "#E76F51",
-        "CSF": "#E76F51",
+        "FFF": "#46C073",
+        "PFF": "#3C75BD",
+        "CFF": "#3C75BD",
+        "PSF": "#E02F62",
+        "CSF": "#E02F62",
     }
 
     for idx, name in enumerate(label_names):
+        canonical = canonical_label(name)
         ax.plot(
             years,
             annual_probs[:, idx],
             color=colors.get(
                 str(name),
-                colors.get(
-                    canonical_label(name),
-                    "#555555"
-                ),
+                colors.get(canonical, "#555555"),
             ),
-            lw=2.3,
+            lw=2.4,
             label=display_label(name),
         )
 
     set_axis_labels(
         ax,
         "Service time (years)",
-        "Failure mode probability",
+        "Probability",
     )
     ax.set_xlim(0, 100)
     ax.set_ylim(0, 1.0)
-    ax.set_yticks(np.linspace(0, 1.0, 5))
+    ax.set_yticks(
+        np.arange(0.0, 1.01, 0.2)
+    )
+
     ax.legend(
         frameon=False,
         loc="upper right",
@@ -1544,14 +1651,15 @@ def make_transition_histogram(
         hist_df["Target_Group"] == group_name
     ].copy()
 
+    # Softer publication-style palette.
     if group_name == "To_FFF":
-        color = "#5B8FF9"
+        color = "#6F9FC8"
         title = (
             "Transition to FFF\n"
             "(CFF→FFF + CSF→FFF)"
         )
     else:
-        color = "#E07A5F"
+        color = "#D78996"
         title = (
             "Transition to CSF\n"
             "(CFF→CSF + FFF→CSF)"
@@ -1571,35 +1679,53 @@ def make_transition_histogram(
     if not g.empty:
         ax.bar(
             g["Bin_Center"],
-            g["Probability_within_group"],
+            g["Count"],
             width=TRANSITION_HIST_BIN_WIDTH * 0.84,
             color=color,
-            edgecolor="white",
-            linewidth=0.6,
-            alpha=0.92,
+            edgecolor="#FFFFFF",
+            linewidth=0.8,
+            alpha=0.95,
         )
 
     set_axis_labels(
         ax,
         "Transition time (years)",
-        "Probability",
+        "Frequency",
     )
     ax.set_xlim(0, 100)
     ax.set_xticks(np.arange(0, 101, 20))
+
+    max_count = (
+        int(g["Count"].max())
+        if not g.empty
+        else 0
+    )
+    y_top = max(1, int(np.ceil(max_count)))
+    ax.set_ylim(0, y_top)
+    ax.yaxis.set_major_locator(
+        MaxNLocator(integer=True)
+    )
+
     ax.set_title(
         f"{title}  (n={n_group})",
         fontsize=10,
         fontproperties=GLOBAL_FONT_PROP,
         pad=5,
     )
+
     ax.grid(
         axis="y",
-        alpha=0.18,
+        alpha=0.16,
         linestyle="--",
         linewidth=0.5,
     )
-    ax.spines["top"].set_visible(False)
-    ax.spines["right"].set_visible(False)
+
+    # Add a complete box around both transition histograms.
+    for spine in ax.spines.values():
+        spine.set_visible(True)
+        spine.set_linewidth(0.8)
+        spine.set_color("#4A4A4A")
+
     apply_academic_style(ax)
     fig.tight_layout(pad=0.35)
     return fig
@@ -1662,13 +1788,13 @@ def render_lifecycle_app(assets=None):
              0.05, 0.25, 0.15, "Normal", 0.12, 0.01, "%.2f", struct_opts),
             ("S_Dp", "S/D<sub>p</sub>", "Pile spacing-to-diameter ratio", "2.5~3.5",
              2.5, 3.5, 3.0, "Normal", 0.15, 0.1, "%.2f", struct_opts),
-            ("Dr", "D<sub>r</sub>", "Sand relative density", "0.35~0.75",
+            ("Dr", "D<sub>r</sub>", "Relative density of sand", "0.35~0.75",
              0.35, 0.75, 0.55, "Uniform", 0.0, 0.05, "%.2f", struct_opts),
             ("Hp_Dc", "H<sub>p</sub>/D<sub>c</sub>", "Column aspect ratio", "1~5",
              1.0, 5.0, 3.0, "Normal", 0.26, 0.1, "%.2f", struct_opts),
-            ("Dc_Dp", "D<sub>c</sub>/D<sub>p</sub>", "Pier-to-pile diameter ratio", "1.5~3.0",
+            ("Dc_Dp", "D<sub>c</sub>/D<sub>p</sub>", "Column-to-pile diameter ratio", "1.5~3.0",
              1.5, 3.0, 2.0, "Normal", 0.10, 0.1, "%.2f", struct_opts),
-            ("rho_cl", "ρ<sub>column,l</sub>", "Pier longitudinal reinforcement ratio", "0.005~0.015",
+            ("rho_cl", "ρ<sub>column,l</sub>", "Column longitudinal reinforcement ratio", "0.005~0.015",
              0.005, 0.015, 0.010, "Normal", 0.27, 0.001, "%.3f", struct_opts),
             ("rho_ps", "ρ<sub>pile,s</sub>", "Pile transverse reinforcement ratio", "0.003~0.013",
              0.003, 0.013, 0.008, "Normal", 0.42, 0.001, "%.3f", struct_opts),
@@ -1676,11 +1802,11 @@ def render_lifecycle_app(assets=None):
              300.0, 500.0, 400.0, "Lognormal", 0.106, 10.0, "%.0f", struct_opts),
             ("fc", "f<sub>c</sub> (MPa)", "Concrete compressive strength", "20~60",
              20.0, 60.0, 40.0, "Lognormal", 0.20, 1.0, "%.1f", struct_opts),
-            ("rho_cs", "ρ<sub>column,s</sub>", "Pier transverse reinforcement ratio", "0.003~0.013",
+            ("rho_cs", "ρ<sub>column,s</sub>", "Column transverse reinforcement ratio", "0.003~0.013",
              0.003, 0.013, 0.008, "Normal", 0.42, 0.001, "%.3f", struct_opts),
-            ("t", "t (m)", "Pier cover concrete thickness", "0.04~0.08",
+            ("t", "t (m)", "Column cover concrete thickness", "0.04~0.08",
              0.04, 0.08, 0.05, "Normal", 0.20, 0.01, "%.2f", struct_opts),
-            ("d_l", "d<sub>l</sub> (m)", "Pier longitudinal reinforcement diameter", "0.018~0.032",
+            ("d_l", "d<sub>l</sub> (m)", "Column longitudinal reinforcement diameter", "0.018~0.032",
              0.018, 0.032, 0.025, "Normal", 0.10, 0.001, "%.3f", struct_opts),
             ("fyt", "f<sub>yt</sub> (MPa)", "Transverse reinforcement yield strength", "250~450",
              250.0, 450.0, 350.0, "Lognormal", 0.106, 10.0, "%.0f", struct_opts),
@@ -1770,7 +1896,7 @@ def render_lifecycle_app(assets=None):
              None, None, 0.250, "Beta", 0.050, 0.01, "%.3f", corr_opts),
             ("X1", "X<sub>1</sub>", "Model uncertainty factor", ">0",
              None, None, 1.000, "Lognormal", 0.050, 0.01, "%.3f", corr_opts),
-            ("lam", "λ", "Corrosion rate adjustment coefficient", "-",
+            ("lam_corr", "λ<sub>corr</sub>", "Corrosion rate adjustment coefficient", "-",
              None, None, 2.000, "Deterministic", 0.000, 0.1, "%.2f", corr_opts),
             ("R", "R", "Pitting corrosion factor (Gumbel μ₀, α₀)", ">0",
              1e-6, None, 5.560, "GumbelMuAlpha", 1.160, 0.1, "%.3f", corr_opts),
@@ -1788,10 +1914,13 @@ def render_lifecycle_app(assets=None):
         ]
         part3_config = [
             ("SD_val", "SD (m)",
-             "Fixed LHS quantile + yearly truncated-normal scour distribution",
-             "0~8", None, None, 0.0, "Normal", SD_COV_DEFAULT, 0.5, "%.3f", scour_opts),
-            ("B_val", "B (m)", "Base width used in scour model", "-",
-             None, None, 2.0 * 2.260, "Deterministic", 0.0, 0.01, "%.3f", scour_opts),
+             "SD(t) = λ_SD B {p[1-exp(-qt)] + r[1-exp(-st)]}",
+             "0~8", None, None, None, "Deterministic", 0.0, 0.5, "%.3f", ["Deterministic"]),
+            ("lambda_SD", "λ<sub>SD</sub>",
+             "Scour depth adjustment coefficient", "-",
+             None, None, 2.000, "Deterministic", 0.0, 0.1, "%.2f", scour_opts),
+            ("B_val", "B (m)", "Base width of the pile foundation", "-",
+             None, None, 2.260, "Deterministic", 0.0, 0.01, "%.3f", scour_opts),
             ("p_val", "p", "Empirical scour parameter p", "-",
              None, None, 1.093, "Deterministic", 0.0, 0.01, "%.3f", scour_opts),
             ("q_val", "q", "Empirical scour parameter q", "-",
@@ -1839,12 +1968,14 @@ def render_lifecycle_app(assets=None):
         plot_corr = st.empty()
         plot_scour = st.empty()
         plot_failure = st.empty()
+        crossover_placeholder = st.empty()
 
         # Two transition histograms are deliberately placed below
         # the failure-mode probability curve.
         plot_to_fff = st.empty()
         plot_to_csf = st.empty()
         transition_summary_placeholder = st.empty()
+        structure_placeholder = st.empty()
 
         if predict_clicked:
             if assets is None:
@@ -1863,19 +1994,10 @@ def render_lifecycle_app(assets=None):
                         + user_scour
                     )
 
-                    sd_input = next(
-                        p
-                        for p in all_inputs
-                        if p["id"] == "SD_val"
-                    )
-                    sd_cov = float(
-                        sd_input["raw_disp"]
-                    )
-
                     result = run_lifecycle_prediction(
                         assets=assets,
                         all_inputs=all_inputs,
-                        sd_cov=sd_cov,
+                        sd_cov=None,
                         n_samples=N_SAMPLES,
                         seed=RANDOM_SEED,
                     )
@@ -1942,6 +2064,82 @@ def render_lifecycle_app(assets=None):
                             clear_figure=True,
                         )
 
+                    # Keep the annual-probability curve crossover years
+                    # directly below the failure-mode probability plot.
+                    label_names = list(result["label_names"])
+                    display_names = [
+                        display_label(x)
+                        for x in label_names
+                    ]
+                    curve_by_display = {
+                        display_names[i]:
+                            result["annual_probs"][:, i]
+                        for i in range(len(label_names))
+                    }
+
+                    crossover_items = []
+                    pairs_to_check = [
+                        ("FFF", "CFF"),
+                        ("FFF", "CSF"),
+                        ("CFF", "CSF"),
+                    ]
+
+                    for label_a, label_b in pairs_to_check:
+                        if (
+                            label_a in curve_by_display
+                            and label_b in curve_by_display
+                        ):
+                            found = find_all_crossovers(
+                                YEARS_FULL,
+                                curve_by_display[label_a],
+                                curve_by_display[label_b],
+                                label_a,
+                                label_b,
+                            )
+                            crossover_items.extend(found)
+
+                    crossover_items = sorted(
+                        crossover_items,
+                        key=lambda x: x[0]
+                    )
+
+                    with crossover_placeholder.container():
+                        if crossover_items:
+                            list_items = "".join(
+                                [
+                                    (
+                                        "<li style='margin-bottom:2px;'>"
+                                        f"{t:.2f} ({desc})"
+                                        "</li>"
+                                    )
+                                    for t, desc
+                                    in crossover_items
+                                ]
+                            )
+                            st.markdown(
+                                f"""
+                                <div style='font-size:14px;color:#555;
+                                line-height:1.4;margin:0 0 8px 12px;'>
+                                <b>Failure-mode probability curve crossover
+                                time (years):</b>
+                                <ul style='margin-top:4px;
+                                padding-left:20px;'>{list_items}</ul>
+                                </div>
+                                """,
+                                unsafe_allow_html=True,
+                            )
+                        else:
+                            st.markdown(
+                                """
+                                <div style='font-size:14px;color:#555;
+                                line-height:1.4;margin:0 0 8px 12px;'>
+                                <b>Failure-mode probability curve crossover
+                                time (years):</b> None
+                                </div>
+                                """,
+                                unsafe_allow_html=True,
+                            )
+
                     with plot_to_fff.container():
                         st.markdown(
                             "<div class='plot-title'>"
@@ -1979,9 +2177,6 @@ def render_lifecycle_app(assets=None):
                             f"""
                             <div style='font-size:14px;color:#555;
                             line-height:1.5;margin-top:2px;'>
-                            <b>Reliable transition criterion:</b>
-                            {MIN_PERSIST_YEARS}-year persistence +
-                            probability margin ≥ {TRANSITION_PROB_MARGIN:.2f}.<br>
                             <b>Observed transition by 100 years:</b>
                             {observed_ratio:.1%}<br>
                             <b>No reliable transition by 100 years:</b>
@@ -1990,6 +2185,33 @@ def render_lifecycle_app(assets=None):
                             """,
                             unsafe_allow_html=True,
                         )
+
+                    with structure_placeholder.container():
+                        st.markdown(
+                            "<div class='plot-title' style='margin-top:8px;'>"
+                            "Structure Schematic"
+                            "</div>",
+                            unsafe_allow_html=True,
+                        )
+                        structure_path = (
+                            Path(__file__).parent
+                            / "GUI_structure.png"
+                        )
+                        if structure_path.exists():
+                            st.image(
+                                str(structure_path),
+                                use_container_width=True,
+                            )
+                        else:
+                            st.markdown(
+                                """
+                                <div style='border:1px dashed #bbb;
+                                padding:24px;text-align:center;color:#888;'>
+                                GUI_structure.png not found
+                                </div>
+                                """,
+                                unsafe_allow_html=True,
+                            )
 
                     # ------------------------------------------------
                     # Excel output
@@ -2065,42 +2287,6 @@ def render_lifecycle_app(assets=None):
                     use_container_width=True,
                 )
 
-    # ========================================================
-    # Structure schematic moved to the very bottom center
-    # ========================================================
-    st.markdown("<hr>", unsafe_allow_html=True)
-    st.markdown(
-        """
-        <div style='text-align:center;font-family:"Times New Roman",serif;
-        font-weight:bold;font-size:18px;margin:8px 0 8px 0;'>
-        Structure Schematic
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    left_pad, center_img, right_pad = st.columns(
-        [2.0, 5.0, 2.0]
-    )
-
-    with center_img:
-        structure_path = Path(__file__).parent / "structure.png"
-        if structure_path.exists():
-            st.image(
-                str(structure_path),
-                use_container_width=True
-            )
-        else:
-            st.markdown(
-                """
-                <div style='border:1px dashed #bbb;padding:34px;
-                text-align:center;color:#888;'>
-                Structure Schematic<br>
-                (structure.png not found)
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
 
 
 # ============================================================
