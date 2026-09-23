@@ -1797,35 +1797,35 @@ def render_lifecycle_app(assets=None):
              2.0, 4.0, 3.0, "DiscreteUniform", 0.0, 1.0, "%.0f", struct_opts),
             ("Dp", "D<sub>p</sub> (m)", "Pile diameter", "0.6~1.8",
              0.6, 1.8, 1.2, "Normal", 0.10, 0.1, "%.2f", struct_opts),
-            ("rho_pl", "ρ<sub>pile,l</sub>", "Pile longitudinal reinforcement ratio", "0.005~0.015",
+            ("rho_pl", "ρ<sub>p,l</sub>", "Pile longitudinal reinforcement ratio", "0.005~0.015",
              0.005, 0.015, 0.010, "Normal", 0.27, 0.001, "%.3f", struct_opts),
             ("alpha", "α", "Column axial load ratio", "0.05~0.25",
              0.05, 0.25, 0.15, "Normal", 0.12, 0.01, "%.2f", struct_opts),
             ("S_Dp", "S/D<sub>p</sub>", "Pile spacing-to-diameter ratio", "2.5~3.5",
              2.5, 3.5, 3.0, "Normal", 0.15, 0.1, "%.2f", struct_opts),
-            ("Dr", "D<sub>r</sub>", "Sand relative density", "0.35~0.75",
+            ("Dr", "D<sub>r</sub>", "Relative density of sand", "0.35~0.75",
              0.35, 0.75, 0.55, "Uniform", 0.0, 0.05, "%.2f", struct_opts),
             ("Hp_Dc", "H<sub>p</sub>/D<sub>c</sub>", "Column aspect ratio", "1~5",
              1.0, 5.0, 3.0, "Normal", 0.26, 0.1, "%.2f", struct_opts),
             ("Dc_Dp", "D<sub>c</sub>/D<sub>p</sub>", "Column-to-pile diameter ratio", "1.5~3.0",
              1.5, 3.0, 2.0, "Normal", 0.10, 0.1, "%.2f", struct_opts),
-            ("rho_cl", "ρ<sub>column,l</sub>", "Column longitudinal reinforcement ratio", "0.005~0.015",
+            ("rho_cl", "ρ<sub>c,l</sub>", "Column longitudinal reinforcement ratio", "0.005~0.015",
              0.005, 0.015, 0.010, "Normal", 0.27, 0.001, "%.3f", struct_opts),
-            ("rho_ps", "ρ<sub>pile,s</sub>", "Pile transverse reinforcement ratio", "0.003~0.013",
+            ("rho_ps", "ρ<sub>p,s</sub>", "Pile transverse reinforcement ratio", "0.003~0.013",
              0.003, 0.013, 0.008, "Normal", 0.42, 0.001, "%.3f", struct_opts),
             ("fyl", "f<sub>yl</sub> (MPa)", "Longitudinal reinforcement yield strength", "300~500",
              300.0, 500.0, 400.0, "Lognormal", 0.106, 10.0, "%.0f", struct_opts),
             ("fc", "f<sub>c</sub> (MPa)", "Concrete compressive strength", "20~60",
              20.0, 60.0, 40.0, "Lognormal", 0.20, 1.0, "%.1f", struct_opts),
-            ("rho_cs", "ρ<sub>column,s</sub>", "Column transverse reinforcement ratio", "0.003~0.013",
+            ("rho_cs", "ρ<sub>c,s</sub>", "Column transverse reinforcement ratio", "0.003~0.013",
              0.003, 0.013, 0.008, "Normal", 0.42, 0.001, "%.3f", struct_opts),
-            ("t", "t (m)", "Column cover concrete thickness", "0.04~0.08",
+            ("t", "t<sub>c</sub (m)", "Column cover concrete thickness", "0.04~0.08",
              0.04, 0.08, 0.05, "Normal", 0.20, 0.01, "%.2f", struct_opts),
             ("d_l", "d<sub>l</sub> (m)", "Column longitudinal reinforcement diameter", "0.018~0.032",
              0.018, 0.032, 0.025, "Normal", 0.10, 0.001, "%.3f", struct_opts),
-            ("fyt", "f<sub>yt</sub> (MPa)", "Transverse reinforcement yield strength", "250~450",
+            ("fyt", "f<sub>ys</sub> (MPa)", "Transverse reinforcement yield strength", "250~450",
              250.0, 450.0, 350.0, "Lognormal", 0.106, 10.0, "%.0f", struct_opts),
-            ("d_t", "d<sub>t</sub> (m)", "Transverse reinforcement diameter", "0.01~0.02",
+            ("d_t", "d<sub>s</sub> (m)", "Transverse reinforcement diameter", "0.01~0.02",
              0.01, 0.02, 0.016, "Normal", 0.10, 0.001, "%.3f", struct_opts),
         ]
 
@@ -1850,7 +1850,7 @@ def render_lifecycle_app(assets=None):
         with col_f2:
             st.latex(r"C_0=A_{cs}(w/c)+\varepsilon_{cs}")
             st.latex(
-                r"i_{corr,0}=\frac{37.8\,\lambda_{corr}(1-w_b)^{-1.64}}{c}"
+                r"i_{corr,0}=\frac{37.8\,\lambda_{corr}(1-w_b)^{-1.64}}{d_c}"
             )
 
         col_z1, col_z2 = st.columns([1.5, 2])
