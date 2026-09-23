@@ -243,7 +243,7 @@ def render_direct_prediction_app(assets=None, show_back_button=False):
             ("rho_ps", "ρ<sub>p,s</sub>", "Pile transverse reinforcement ratio", "0.003~0.013", 0.003, 0.013, 0.008, "Normal", 0.42, 0.001, "%.3f"),
             ("fyl", "f<sub>yl</sub> (MPa)", "Longitudinal rebar yield strength", "300~500", 300.0, 500.0, 400.0, "Lognormal", 0.106, 10.0, "%.0f"),
             ("fc", "f<sub>c</sub> (MPa)", "Concrete compressive strength", "20~60", 20.0, 60.0, 40.0, "Lognormal", 0.20, 1.0, "%.1f"),
-            ("rho_cs", "ρ<sub>c,s</sub>", "Pier transverse reinforcement ratio", "0.003~0.013", 0.003, 0.013, 0.008, "Normal", 0.42, 0.001, "%.3f"),
+            ("rho_cs", "ρ<sub>c,s</sub>", "Column transverse reinforcement ratio", "0.003~0.013", 0.003, 0.013, 0.008, "Normal", 0.42, 0.001, "%.3f"),
 
             # ===== 腐蚀参数：按机器学习训练范围 0~1.0 设置 =====
             # Xt 不再表示 Xt/Xl，而是箍筋/横向钢筋腐蚀率本身
