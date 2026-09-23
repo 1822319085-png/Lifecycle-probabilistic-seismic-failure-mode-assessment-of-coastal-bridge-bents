@@ -108,7 +108,7 @@ CURRENT_CASE2_DEFAULTS = {
     "n_val": ("Beta", 0.250, 0.050, None, None),
     "X1": ("Lognormal", 1.000, 0.050, None, None),
     "lam_corr": ("Deterministic", 2.000, 0.000, None, None),
-    "R": ("GumbelMuAlpha", 5.560, 1.160, 1e-6, None),
+    "R": ("Gumbel", 5.560, 1.160, 1e-6, None),
     "lambda_SD": ("Deterministic", 2.000, 0.000, None, None),
     "B_val": ("Deterministic", 2.260, 0.0, None, None),
     "p_val": ("Deterministic", 1.093, 0.0, None, None),
@@ -253,6 +253,8 @@ def setup_matplotlib_font():
 
 
 GLOBAL_FONT_NAME, GLOBAL_FONT_PROP = setup_matplotlib_font()
+plt.rcParams["font.family"] = "Times New Roman" if GLOBAL_FONT_NAME == "Times New Roman" else GLOBAL_FONT_NAME
+plt.rcParams["font.serif"] = ["Times New Roman", "STIXGeneral", "DejaVu Serif"]
 plt.rcParams["mathtext.fontset"] = "stix"
 plt.rcParams["axes.unicode_minus"] = False
 plt.rcParams["pdf.fonttype"] = 42
@@ -264,8 +266,16 @@ def inject_css():
     st.markdown(
         """
         <style>
-        html, body, [data-testid="stAppViewContainer"], .stText, .stMarkdown,
-        p, span, label, button {
+        html, body, *,
+        [data-testid="stAppViewContainer"],
+        [data-testid="stMarkdownContainer"],
+        [data-testid="stWidgetLabel"],
+        [data-testid="stMetricLabel"],
+        [data-testid="stMetricValue"],
+        .stText, .stMarkdown,
+        p, span, label, button, input, textarea,
+        div, h1, h2, h3, h4, h5, h6,
+        table, th, td, li, ul, ol {
             font-family: 'Times New Roman', serif !important;
         }
         .block-container {
@@ -497,7 +507,7 @@ def get_samples(u_array, dist_type, mean, std, p_min, p_max):
             )
         s = stats.beta.ppf(u_array, a, b)
 
-    elif dist_type == "GumbelMuAlpha":
+    elif dist_type == "Gumbel":
         # R follows F(r)=exp{-exp[-alpha0*(r-mu0)]}
         mu0 = float(mean)
         alpha0 = float(std)
@@ -783,59 +793,62 @@ def generate_scour_paths(
     U,
     all_inputs,
     years_arr,
-    sd_cov=None,
+    sd_cov,
 ):
     """
-    Continuous time-varying scour depth.
+    Continuous stochastic scour depth with a fixed lifecycle LHS quantile.
 
-    The GUI now uses the scour evolution equation directly in the ML inputs:
-        SD(t) = lambda_SD * B *
-                [p*(1-exp(-q*t)) + r*(1-exp(-s*t))]
+    For each sample i, U_SD,i is generated once and retained for all years.
+    The yearly distribution is:
 
-    No 0.5 m discretization and no additional yearly random SD realization
-    are applied. If the user changes B/p/q/r/s/lambda_SD from deterministic
-    to random distributions in a future version, each sample retains its
-    initially sampled coefficients throughout the entire lifecycle.
+        SD_mean(t) = lambda_SD * B *
+                     {p[1-exp(-q t)] + r[1-exp(-s t)]}
+
+        SD(t) ~ Truncated Normal(mean=SD_mean(t),
+                                 std=COV_SD*SD_mean(t),
+                                 range=[0, 8] m)
+
+    No 0.5 m discretization is used.
     """
+    input_ids = [p["id"] for p in all_inputs]
+    sd_idx = input_ids.index("SD_val")
+    U_SD = np.clip(U[:, sd_idx], 1e-10, 1.0 - 1e-10)
+
     p_arr = np.asarray(samples_dict["p_val"], dtype=float)
     q_arr = np.asarray(samples_dict["q_val"], dtype=float)
     r_arr = np.asarray(samples_dict["r_val"], dtype=float)
     s_arr = np.asarray(samples_dict["s_val"], dtype=float)
     B_arr = np.asarray(samples_dict["B_val"], dtype=float)
-    lambda_sd_arr = np.asarray(
-        samples_dict["lambda_SD"],
-        dtype=float
-    )
+    lambda_sd_arr = np.asarray(samples_dict["lambda_SD"], dtype=float)
 
-    scour_depths = np.zeros(
-        (len(B_arr), len(years_arr)),
-        dtype=float
-    )
+    raw = np.zeros((len(U_SD), len(years_arr)), dtype=float)
 
     for y_idx, yr in enumerate(years_arr):
-        sd = (
-            lambda_sd_arr
-            * B_arr
-            * (
-                p_arr * (1.0 - np.exp(-q_arr * yr))
-                + r_arr * (1.0 - np.exp(-s_arr * yr))
-            )
+        sd_mean = (
+            lambda_sd_arr * B_arr *
+            (p_arr * (1.0 - np.exp(-q_arr * yr))
+             + r_arr * (1.0 - np.exp(-s_arr * yr)))
         )
 
-        # Keep the ML input inside the trained physical range.
-        scour_depths[:, y_idx] = np.clip(
-            sd,
-            0.0,
-            8.0
+        zero_mask = np.isclose(sd_mean, 0.0, atol=1e-14)
+        dynamic_std = np.maximum(sd_mean * float(sd_cov), 1e-10)
+        a = (0.0 - sd_mean) / dynamic_std
+        b = (8.0 - sd_mean) / dynamic_std
+
+        sd_samples = stats.truncnorm.ppf(
+            U_SD,
+            a,
+            b,
+            loc=sd_mean,
+            scale=dynamic_std,
         )
+        sd_samples = np.where(zero_mask, 0.0, sd_samples)
+        raw[:, y_idx] = np.clip(sd_samples, 0.0, 8.0)
 
     if FORCE_SCOUR_MONOTONIC:
-        scour_depths = np.maximum.accumulate(
-            scour_depths,
-            axis=1
-        )
+        raw = np.maximum.accumulate(raw, axis=1)
 
-    return scour_depths
+    return raw
 
 
 # ============================================================
@@ -1192,7 +1205,7 @@ def render_param_section(
         "Parameter",
         "Description",
         "Distribution",
-        "Mean / loc",
+        "Mean",
         "St. dev. / α" if use_std else "COV",
         "Range",
     ]
@@ -1299,7 +1312,7 @@ def render_param_section(
 
         if use_std:
             # Corrosion-table dispersion column is interpreted directly as
-            # standard deviation, except for GumbelMuAlpha where it is alpha0.
+            # standard deviation, except for Gumbel where it is alpha0.
             # In both cases the current GUI value must be passed through.
             std_val = float(disp_val)
         else:
@@ -1531,55 +1544,38 @@ def make_scour_plot(
     years,
     scour_depths,
 ):
-    """Continuous scour-depth plot with integer-truncated vertical axis."""
-    fig, ax = plt.subplots(
-        figsize=(6, 3.3),
-        dpi=220
-    )
+    fig, ax = plt.subplots(figsize=(6, 3.3), dpi=220)
 
     med = np.median(scour_depths, axis=0)
-    p16 = np.percentile(
-        scour_depths, 16, axis=0
-    )
-    p84 = np.percentile(
-        scour_depths, 84, axis=0
-    )
+    p16 = np.percentile(scour_depths, 16, axis=0)
+    p84 = np.percentile(scour_depths, 84, axis=0)
 
-    # With deterministic default scour parameters all three curves coincide.
-    # The band remains useful if users later assign uncertainty to coefficients.
     ax.plot(
         years,
         med,
         color="#1F7A8C",
         lw=2.4,
-        label="Scour depth",
+        label="Scour depth (median)",
         zorder=3,
     )
-
-    if np.any(np.abs(p84 - p16) > 1e-12):
-        ax.fill_between(
-            years,
-            p16,
-            p84,
-            color="#B8E0E6",
-            alpha=0.55,
-            label="16%-84% quantiles",
-            zorder=2,
-        )
-
-    set_axis_labels(
-        ax,
-        "Service time (years)",
-        "Scour depth (m)",
+    ax.fill_between(
+        years,
+        p16,
+        p84,
+        color="#B8E0E6",
+        alpha=0.62,
+        label="Scour depth (16%-84% quantiles)",
+        zorder=2,
     )
+
+    set_axis_labels(ax, "Service time (years)", "Scour depth (m)")
     ax.set_xlim(0, 100)
 
     max_scour = float(np.max(p84))
     y_top = max(1, int(np.ceil(max_scour)))
     ax.set_ylim(0, y_top)
-    ax.set_yticks(
-        np.arange(0, y_top + 1, 1)
-    )
+    step = 1 if y_top <= 8 else max(1, int(np.ceil(y_top / 6.0)))
+    ax.set_yticks(np.arange(0, y_top + step, step))
 
     ax.legend(frameon=False, loc="upper left")
     ax.grid(False)
@@ -1700,11 +1696,30 @@ def make_transition_histogram(
         if not g.empty
         else 0
     )
-    y_top = max(1, int(np.ceil(max_count)))
-    ax.set_ylim(0, y_top)
-    ax.yaxis.set_major_locator(
-        MaxNLocator(integer=True)
+
+    def _nice_integer_step(value, target_intervals=4):
+        if value <= 0:
+            return 1
+        raw = value / float(target_intervals)
+        magnitude = 10 ** int(np.floor(np.log10(max(raw, 1e-12))))
+        normalized = raw / magnitude
+        if normalized <= 1:
+            nice = 1
+        elif normalized <= 2:
+            nice = 2
+        elif normalized <= 5:
+            nice = 5
+        else:
+            nice = 10
+        return max(1, int(nice * magnitude))
+
+    y_step = _nice_integer_step(max_count, target_intervals=4)
+    y_top = max(
+        y_step,
+        int(np.ceil(max_count / y_step) * y_step)
     )
+    ax.set_ylim(0, y_top)
+    ax.set_yticks(np.arange(0, y_top + y_step, y_step))
 
     ax.set_title(
         f"{title}  (n={n_group})",
@@ -1788,7 +1803,7 @@ def render_lifecycle_app(assets=None):
              0.05, 0.25, 0.15, "Normal", 0.12, 0.01, "%.2f", struct_opts),
             ("S_Dp", "S/D<sub>p</sub>", "Pile spacing-to-diameter ratio", "2.5~3.5",
              2.5, 3.5, 3.0, "Normal", 0.15, 0.1, "%.2f", struct_opts),
-            ("Dr", "D<sub>r</sub>", "Relative density of sand", "0.35~0.75",
+            ("Dr", "D<sub>r</sub>", "Sand relative density", "0.35~0.75",
              0.35, 0.75, 0.55, "Uniform", 0.0, 0.05, "%.2f", struct_opts),
             ("Hp_Dc", "H<sub>p</sub>/D<sub>c</sub>", "Column aspect ratio", "1~5",
              1.0, 5.0, 3.0, "Normal", 0.26, 0.1, "%.2f", struct_opts),
@@ -1825,7 +1840,7 @@ def render_lifecycle_app(assets=None):
             unsafe_allow_html=True
         )
 
-        col_f1, col_f2 = st.columns([1.4, 1.1])
+        col_f1, col_f2 = st.columns([1.45, 1.05])
         with col_f1:
             st.latex(
                 r"t_{corr}=X_1\left[\frac{d_c^2}{4k_ek_tk_cD_0(t_0)^n}"
@@ -1833,8 +1848,10 @@ def render_lifecycle_app(assets=None):
                 r"\right]^{\frac{1}{1-n}}"
             )
         with col_f2:
-            st.markdown("<div style='margin-top:20px'></div>", unsafe_allow_html=True)
             st.latex(r"C_0=A_{cs}(w/c)+\varepsilon_{cs}")
+            st.latex(
+                r"i_{corr,0}=\frac{37.8\,\lambda_{corr}(1-w_b)^{-1.64}}{c}"
+            )
 
         col_z1, col_z2 = st.columns([1.5, 2])
         with col_z1:
@@ -1873,7 +1890,7 @@ def render_lifecycle_app(assets=None):
             "Normal",
             "Lognormal",
             "Beta",
-            "GumbelMuAlpha",
+            "Gumbel",
             "Deterministic",
         ]
 
@@ -1898,8 +1915,8 @@ def render_lifecycle_app(assets=None):
              None, None, 1.000, "Lognormal", 0.050, 0.01, "%.3f", corr_opts),
             ("lam_corr", "λ<sub>corr</sub>", "Corrosion rate adjustment coefficient", "-",
              None, None, 2.000, "Deterministic", 0.000, 0.1, "%.2f", corr_opts),
-            ("R", "R", "Pitting corrosion factor (Gumbel μ₀, α₀)", ">0",
-             1e-6, None, 5.560, "GumbelMuAlpha", 1.160, 0.1, "%.3f", corr_opts),
+            ("R", "R", "Pitting corrosion factor", ">0",
+             1e-6, None, 5.560, "Gumbel", 1.160, 0.1, "%.3f", corr_opts),
         ]
 
         user_corr = render_param_section(
@@ -1914,8 +1931,8 @@ def render_lifecycle_app(assets=None):
         ]
         part3_config = [
             ("SD_val", "SD (m)",
-             "SD(t) = λ_SD B {p[1-exp(-qt)] + r[1-exp(-st)]}",
-             "0~8", None, None, None, "Deterministic", 0.0, 0.5, "%.3f", ["Deterministic"]),
+             "SD<sub>mean</sub>(t) = λ<sub>SD</sub>B{p[1-exp(-qt)] + r[1-exp(-st)]}",
+             "0~8", 0.0, 8.0, None, "Normal", 0.27, 0.5, "%.3f", ["Normal"]),
             ("lambda_SD", "λ<sub>SD</sub>",
              "Scour depth adjustment coefficient", "-",
              None, None, 2.000, "Deterministic", 0.0, 0.1, "%.2f", scour_opts),
@@ -1994,10 +2011,16 @@ def render_lifecycle_app(assets=None):
                         + user_scour
                     )
 
+                    sd_input = next(
+                        p for p in all_inputs
+                        if p["id"] == "SD_val"
+                    )
+                    sd_cov = float(sd_input["raw_disp"])
+
                     result = run_lifecycle_prediction(
                         assets=assets,
                         all_inputs=all_inputs,
-                        sd_cov=None,
+                        sd_cov=sd_cov,
                         n_samples=N_SAMPLES,
                         seed=RANDOM_SEED,
                     )
