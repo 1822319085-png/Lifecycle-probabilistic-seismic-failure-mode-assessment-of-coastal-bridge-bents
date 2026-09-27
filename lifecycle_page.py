@@ -1852,7 +1852,7 @@ def render_lifecycle_app(assets=None):
                 r"\right]^{\frac{1}{1-n}}"
             )
         with col_f2:
-            st.latex(r"C_0=A_{cs}(w/c)+\varepsilon_{cs}")
+            st.latex(r"C_0=A_{cs}(w/c)+\varepsilon_{cs}"
             )
         with col_f3:
             st.latex(
