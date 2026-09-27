@@ -1840,7 +1840,11 @@ def render_lifecycle_app(assets=None):
             unsafe_allow_html=True
         )
 
-        col_f1, col_f2 = st.columns([1.45, 1.05])
+        col_f1, col_f2, col_f3 = st.columns(
+           [2.2, 1.15, 1.45],
+           gap="small"
+        )
+       
         with col_f1:
             st.latex(
                 r"t_{corr}=X_1\left[\frac{d_c^2}{4k_ek_tk_cD_0(t_0)^n}"
@@ -1849,9 +1853,12 @@ def render_lifecycle_app(assets=None):
             )
         with col_f2:
             st.latex(r"C_0=A_{cs}(w/c)+\varepsilon_{cs}")
-            st.latex(
-                r"i_{corr,0}=\frac{37.8\,\lambda_{corr}(1-w_b)^{-1.64}}{d_c}"
             )
+        with col_f3:
+            st.latex(
+            r"i_{corr,0} = "
+               r"\frac{37.8\,\lambda_{corr}(1-w_b)^{-1.64}}{d_c}"
+           )
 
         col_z1, col_z2 = st.columns([1.5, 2])
         with col_z1:
