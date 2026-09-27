@@ -1859,6 +1859,10 @@ def render_lifecycle_app(assets=None):
             r"i_{corr,0} = "
                r"\frac{37.8\,\lambda_{corr}(1-w_b)^{-1.64}}{d_c}"
            )
+        st.markdown(
+           "</div>",
+           unsafe_allow_html=True
+           )
 
         col_z1, col_z2 = st.columns([1.5, 2])
         with col_z1:
