@@ -1886,7 +1886,8 @@ def render_lifecycle_app(assets=None):
             )
         with col_f3:
             st.latex(
-            r"i_{corr,0} = "
+               r"\vphantom{\left(1-w_b\right)^{-2.5}}"
+               r"i_{corr,0}="
                r"\frac{37.8\,\lambda_{corr}(1-w_b)^{-1.64}}{d_c}"
            )
 
