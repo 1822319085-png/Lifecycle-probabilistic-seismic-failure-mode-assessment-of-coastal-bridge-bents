@@ -1862,7 +1862,7 @@ def render_lifecycle_app(assets=None):
            )
 
         st.markdown(
-           "<div style='height: 18px;'></div>",
+           "<div style='height: 20px;'></div>",
            unsafe_allow_html=True
            )
 
