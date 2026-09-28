@@ -1840,9 +1840,15 @@ def render_lifecycle_app(assets=None):
             unsafe_allow_html=True
         )
 
+       st.markdown(
+           "<div style='margin-top: 13px; margin-bottom: 5px;'>",
+           unsafe_allow_html=True
+        )
+
         col_f1, col_f2, col_f3 = st.columns(
            [2.2, 1.15, 1.45],
            gap="small"
+           vertical_alignment="center"
         )
        
         with col_f1:
