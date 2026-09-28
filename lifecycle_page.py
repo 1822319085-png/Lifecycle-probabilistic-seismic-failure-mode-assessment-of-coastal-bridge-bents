@@ -1841,8 +1841,8 @@ def render_lifecycle_app(assets=None):
         )
 
        st.markdown(
-           "<div style='margin-top: 13px; margin-bottom: 5px;'>",
-           unsafe_allow_html=True
+          "<div style='margin-top: 13px; margin-bottom: 5px;'>",
+          unsafe_allow_html=True
         )
 
         col_f1, col_f2, col_f3 = st.columns(
