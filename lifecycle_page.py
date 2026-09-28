@@ -1846,8 +1846,8 @@ def render_lifecycle_app(assets=None):
         )
 
         col_f1, col_f2, col_f3 = st.columns(
-           [2.2, 1.25, 1.45],
-           gap="small"
+           [2.1, 1.25, 1.45],
+           gap="small"，
            vertical_alignment="center"
         )
        
