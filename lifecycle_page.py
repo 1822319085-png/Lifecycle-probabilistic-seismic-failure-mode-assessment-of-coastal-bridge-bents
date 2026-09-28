@@ -1839,35 +1839,6 @@ def render_lifecycle_app(assets=None):
            "<div class='section-header'>2. Corrosion-related parameters</div>",
            unsafe_allow_html=True
         )
-
-        st.markdown(
-           """
-           <style>
-           div[data-testid="stLatex"] {
-           min-height: 80px !important;
-           height: auto !important;
-           overflow: visible !important;
-           display: flex;
-           align-items: center;
-           padding-top: 15px !important;
-           padding-bottom: 6px !important;
-           }
-
-           div[data-testid="stLatex"] .katex-display {
-           overflow: visible !important;
-           margin: 0 !important;
-           padding-top: 4px !important;
-           padding-bottom: 4px !important;
-           }
-
-           div[data-testid="stLatex"] .katex {
-           overflow: visible !important;
-           }
-           </style>
-           """,
-           unsafe_allow_html=True
-       )
-
        
         col_f1, col_f2, col_f3 = st.columns(
            [2.1, 1.30, 1.45],
