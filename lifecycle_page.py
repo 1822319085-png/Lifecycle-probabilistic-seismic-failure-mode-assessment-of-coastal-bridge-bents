@@ -1849,7 +1849,7 @@ def render_lifecycle_app(assets=None):
            overflow: visible !important;
            display: flex;
            align-items: center;
-           padding-top: 10px !important;
+           padding-top: 15px !important;
            padding-bottom: 6px !important;
            }
 
