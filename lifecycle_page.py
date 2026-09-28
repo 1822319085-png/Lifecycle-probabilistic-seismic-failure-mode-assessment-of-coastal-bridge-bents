@@ -1861,10 +1861,10 @@ def render_lifecycle_app(assets=None):
                r"\frac{37.8\,\lambda_{corr}(1-w_b)^{-1.64}}{d_c}"
            )
 
-       st.markdown(
-          "<div style='height: 18px;'></div>",
-          unsafe_allow_html=True
-          )
+        st.markdown(
+           "<div style='height: 18px;'></div>",
+           unsafe_allow_html=True
+           )
 
         st.markdown(
            "</div>",
